@@ -1,0 +1,27 @@
+.container { 
+    width: 75%;
+    display: flex; 
+    justify-content: space-between; 
+} 
+ 
+.item { 
+    flex: 1; 
+    margin: 10px;  
+    font-weight: bold;
+    font-size: 30px;
+    text-align: center; /* Center text for headers */
+} 
+
+.datas { 
+    width: 75%; /* Match with container width */
+    display: flex; 
+    justify-content: space-between; 
+} 
+
+.datas div { 
+    flex: 1; 
+    margin: 10px;  
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; /* Center text for data */
+}
