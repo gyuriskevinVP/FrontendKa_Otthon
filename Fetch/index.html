@@ -1,26 +1,222 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hu">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kurzusok</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            margin-left: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container"> 
-        <div class="item">Course ID</div> 
-        <div class="item">Course Name</div> 
-        <div class="item">Course Students</div> 
-    </div> 
+
+<h1>Kurzusok</h1>
+
+<table id="coursesTable">
+    <thead>
+        <tr>
+            <th>Kurzus neve</th>
+            <th>Diákok</th>
+            <th>Műveletek</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<h2>Új kurzus létrehozása</h2>
+<input type="text" id="courseInput" placeholder="Kurzus neve" />
+<button id="addCourseBtn">Kurzus hozzáadása</button>
+
+<h2>Diák hozzáadása egy kurzushoz</h2>
+<textarea id="studentsInput" placeholder="Diák neve (vesszővel elválasztva)"></textarea>
+<select id="courseSelect"></select>
+<button id="addStudentsBtn">Diákok hozzáadása</button>
+
+<h2>Diákok törlése</h2>
+<select id="studentsToDeleteSelect" multiple></select>
+<button id="deleteStudentsBtn">Diákok törlése</button>
+
+<script>
+const url = "https://vvri.pythonanywhere.com/api/courses"; 
+
+function loadCourses() {
+    fetch(url)
+    .then(response => response.json())
+    .then(data => {
+        const courses = data;
+        const coursesTableBody = document.getElementById("coursesTable").getElementsByTagName('tbody')[0];
+        coursesTableBody.innerHTML = "";
+
+        const courseSelect = document.getElementById("courseSelect");
+        courseSelect.innerHTML = "";
+        const studentsToDeleteSelect = document.getElementById("studentsToDeleteSelect");
+        studentsToDeleteSelect.innerHTML = ""; 
+
+        courses.forEach(course => {
+            const row = coursesTableBody.insertRow();
+            row.insertCell(0).innerText = course.name;
+
+            const studentsCell = row.insertCell(1);
+            const studentNames = course.students.map(student => student.name).join(", ");
+            studentsCell.innerText = studentNames;
+
+            const actionsCell = row.insertCell(2);
+
+            const deleteCourseBtn = document.createElement("button");
+            deleteCourseBtn.innerText = "Kurzus törlése";
+            deleteCourseBtn.onclick = () => deleteCourse(course.id);
+            actionsCell.appendChild(deleteCourseBtn);
+
+            const option = document.createElement("option");
+            option.value = course.id;
+            option.innerText = course.name;
+            courseSelect.appendChild(option);
+
+            course.students.forEach(student => {
+                const studentOption = document.createElement("option");
+                studentOption.value = student.id; // Azonosító a diák törléséhez
+                studentOption.innerText = `${student.name} (${course.name})`;
+                studentsToDeleteSelect.appendChild(studentOption);
+            });
+        });
+    })
+    .catch(error => console.log("Hiba történt a kurzusok betöltésekor: " + error));
+}
+
+document.getElementById("addCourseBtn").onclick = () => {
+    const courseName = document.getElementById("courseInput").value;
+    if (courseName.trim() === "") {
+        alert("Kérjük, adjon meg egy kurzus nevet.");
+        return;
+    }
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: courseName })
+    })
+    .then(response => {
+        if (response.ok) {
+            loadCourses();
+            document.getElementById("courseInput").value = ""; 
+        } else {
+            console.log("Hiba történt a kurzus létrehozásakor:", response.statusText);
+        }
+    })
+    .catch(error => console.log("Hiba történt a kurzus létrehozásakor: " + error));
+};
+
+// Diákok hozzáadása
+document.getElementById("addStudentsBtn").onclick = () => {
+    const studentsInput = document.getElementById("studentsInput").value;
+    const courseId = document.getElementById("courseSelect").value;
+
+    const studentNames = studentsInput.split(',').map(name => name.trim()).filter(name => name); // Vesszővel elválasztott diáknevek
+
+    if (studentNames.length === 0) {
+        alert("Kérjük, adjon meg legalább egy diák nevet.");
+        return;
+    }
+
+    studentNames.forEach(name => {
+        fetch('https://vvri.pythonanywhere.com/api/students', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                course_id: parseInt(courseId)
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                console.error("Hiba történt a diák hozzáadásakor:", response.statusText);
+            }
+            loadCourses(); 
+            document.getElementById("studentsInput").value = ""; 
+        })
+        .catch(error => console.error("Hiba történt a diák hozzáadásakor:", error));
+    });
+};
+
+document.getElementById("deleteStudentsBtn").onclick = () => {
+    const selectedStudents = Array.from(document.getElementById("studentsToDeleteSelect").selectedOptions).map(option => option.value);
     
-    <div class="datas"> 
-        <div class="courseId"></div> 
-        <div class="courseName"></div> 
-        <div class="courseStudent"></div> 
-    </div>
-    
-    
-    
+    if (selectedStudents.length === 0) {
+        alert("Kérjük, válasszon ki legalább egy diákot a törléshez.");
+        return;
+    }
+
+    selectedStudents.forEach(studentId => {
+        fetch(`https://vvri.pythonanywhere.com/api/students/${studentId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                console.error("Hiba történt a diák törlésekor:", response.statusText);
+            }
+            loadCourses();
+        })
+        .catch(error => console.error("Hiba történt a diákok törlésekor:", error));
+    });
+};
+
+function deleteCourse(courseId) {
+    fetch(`${url}/${courseId}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (response.ok) {
+            loadCourses();
+        } else {
+            console.error("Hiba történt a kurzus törlésekor:", response.statusText);
+        }
+    })
+    .catch(error => console.log("Hiba történt a kurzus törlésekor: " + error));
+}
+
+loadCourses();
+</script>
+
 </body>
-<script src="script.js"></script>
 </html>
